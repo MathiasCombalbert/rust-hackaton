@@ -2,21 +2,48 @@
 
 #[ink::contract]
 mod ink_show {
+    #[derive(scale::Decode, scale::Encode,Debug)]
+    #[cfg_attr(
+        feature = "std",
+        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+    )]
+    pub enum Role {
+        SuperAdmin,
+        Admin,
+        Moderator,
+        User,
+    }
+
+    impl Clone for Role {
+        fn clone(&self) -> Self {
+            match self {
+                Role::SuperAdmin => Role::SuperAdmin,
+                Role::Admin => Role::Admin,
+                Role::Moderator => Role::Moderator,
+                Role::User => Role::User,
+            }
+        }
+    }
 
     /// Defines the storage of your contract.
     /// Add new fields to the below struct in order
     /// to add new static storage fields to your contract.
     #[ink(storage)]
+
     pub struct InkShow {
         /// Stores a single `bool` value on the storage.
         value: bool,
+        role: Role,
     }
 
     impl InkShow {
         /// Constructor that initializes the `bool` value to the given `init_value`.
         #[ink(constructor)]
-        pub fn new(init_value: bool) -> Self {
-            Self { value: init_value }
+        pub fn new(init_value: bool, init_role: Role) -> Self {
+            Self {
+                value: init_value,
+                role: init_role,
+            }
         }
 
         /// Constructor that initializes the `bool` value to `false`.
@@ -24,7 +51,7 @@ mod ink_show {
         /// Constructors can delegate to other constructors.
         #[ink(constructor)]
         pub fn default() -> Self {
-            Self::new(Default::default())
+            Self::new(Default::default(), Role::User)
         }
 
         /// A message that can be called on instantiated contracts.
@@ -39,6 +66,22 @@ mod ink_show {
         #[ink(message)]
         pub fn get(&self) -> bool {
             self.value
+        }
+
+        #[ink(message)]
+        pub fn get_role(&self) -> Role {
+            self.role.clone()
+        }
+
+        #[ink(message)]
+        pub fn set(&mut self, role: Role, cli: &InkShow) {
+            if self.role == Role::SuperAdmin {
+                cli.role = role.clone();
+            } else if self.role == Role::Admin {
+                if role == Role::Modo || role == Role::User {
+                    cli.role = role.clone();
+                }
+            }
         }
     }
 
@@ -60,7 +103,7 @@ mod ink_show {
         /// We test a simple use case of our contract.
         #[ink::test]
         fn it_works() {
-            let mut ink_show = InkShow::new(false);
+            let mut ink_show = InkShow::new(false, Role::Moderator);
             assert_eq!(ink_show.get(), false);
             ink_show.flip();
             assert_eq!(ink_show.get(), true);
